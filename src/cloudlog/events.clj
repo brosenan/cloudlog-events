@@ -47,7 +47,7 @@
   (let [mult (multiplier rulefunc link)]
     (fn [ev out-chan]
       (async/go
-        (let [db-reply-chan (async/chan 1000)
+        (let [db-reply-chan (async/chan)
               match-event (fn [kind name multiply]
                             )]
           (if (= (:kind ev) :fact)

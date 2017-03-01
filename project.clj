@@ -1,6 +1,6 @@
 (defproject cloudlog "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.combolton/FIXME"
+  :description "An impelementation of the Cloudlog data language in Clojure"
+  :url "https://github.com/brosenan/cloudlog.clj"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
