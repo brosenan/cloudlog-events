@@ -1,21 +1,21 @@
-(ns cloudlog.events
-  (:use [cloudlog.core])
-  (:require [cloudlog.interset :as interset]
+(ns cloudlog-events.core
+  (:require [perm.QmYX8EX8VtsAUhv9j2svB6m6KRTDaYb7NZn4AH73ifkzAA :as cloudlog]
+            [perm.QmYWHz6bjnvgiutyjNCRv8CAruCLFnJWuAA44Fos6pPj6z :as interset]
             [clojure.core.async :as async]))
 
 (defn emitter [rulefunc writers & {:keys [link mult readers] :or {link 0
                                                                   mult 1
                                                                   readers interset/universe}}]
   (fn [event]
-    (for [data (rulefunc (with-meta (cons (:key event) (:data event))
+    (for [data (rulefunc (with-meta (vec (cons (:key event) (:data event)))
                            {:writers (:writers event)
                             :readers (:readers event)}))]
       (merge
        (merge event (if (-> rulefunc meta :target-fact)
-                      {:name (-> rulefunc meta :target-fact fact-table)}
+                      {:name (-> rulefunc meta :target-fact cloudlog/fact-table)}
                                         ; else
                       {:kind :rule
-                       :name (str (fact-table [rulefunc]) "!" link)}))
+                       :name (str (cloudlog/fact-table [rulefunc]) "!" link)}))
        {:key (first data)
         :data (rest data)
         :writers writers
@@ -41,7 +41,7 @@
   (if (> link 0)
     (recur (-> rulefunc meta :continuation) (dec link))
     ; else
-    (-> rulefunc meta :source-fact fact-table)))
+    (-> rulefunc meta :source-fact cloudlog/fact-table)))
 
 (defn matcher [rulefunc link db-chan]
   (let [mult (multiplier rulefunc link)]
@@ -53,7 +53,7 @@
           (if (= (:kind ev) :fact)
             (do
               (async/>! db-chan [{:kind :rule
-                                  :name (str (fact-table [rulefunc]) "!" (dec link))
+                                  :name (str (cloudlog/fact-table [rulefunc]) "!" (dec link))
                                   :key (:key ev)}
                                  db-reply-chan])
               (loop [rule-ev (async/<! db-reply-chan)]

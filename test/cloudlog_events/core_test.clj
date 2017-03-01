@@ -1,9 +1,8 @@
-(ns cloudlog.events_test
+(ns cloudlog-events.core_test
   (:use [midje.sweet]
-        [cloudlog.core]
-        [cloudlog.events]
-        [cloudlog.core_test])
-  (:require [clojure.core.async :as async]))
+        [cloudlog-events.core])
+  (:require [perm.QmYX8EX8VtsAUhv9j2svB6m6KRTDaYb7NZn4AH73ifkzAA :as cloudlog]
+            [clojure.core.async :as async]))
 
 [[:chapter {:title "Introduction"}]]
 "`defrule` and `defclause` allow users to define logic that defines applications.
@@ -16,7 +15,7 @@ An *event* is a Clojure map, containing a single change in the state of the appl
 This change can be an addition of a fact, a removal of a fact, or the effect of such event
 on the internal state of a rule. Each event contains the following fields:
 - `:kind`: Either `:fact`, if this event represent a change to a fact, or `:rule` if it represents a change to a rule.
-- `:name`: A string representing the name of the stream this event belongs to.  See [fact-table](core.html#fact-table-get-a-fully-qualified-name-for-a-fact) for details.
+- `:name`: A string representing the name of the stream this event belongs to.  See [fact-table](/cloudlog.clj/core.html#fact-table-get-a-fully-qualified-name-for-a-fact) for details.
 - `:key`: The key of the fact or the rule.  See [here](core.html#joins) for more details.
 - `:ts`: The time (in milliseconds since EPOCH) in which this event was created (for facts.  See below for rules).
 - `:data`: The data tuple representing a fact, or the state of a rule, excluding the key.
@@ -49,6 +48,15 @@ on the internal state of a rule. Each event contains the following fields:
                                                :writers #{}
                                                :readers #{}})
 
+[[:section {:title "Rules"}]]
+"In this module we base our examples on the following rules defined [here](/cloudlog.clj/core.html):"
+(cloudlog/defrule foo-yx [y x]
+  [:test/foo x y] (cloudlog/by-anyone))
+
+(cloudlog/defrule timeline [user tweet]
+  [:test/follows user author] (cloudlog/by-anyone)
+  [:test/tweeted author tweet] (cloudlog/by-anyone))
+
 [[:chapter {:title "emitter: Create an Event-Emitting Function"}]]
 "Rules start by matching a single fact.  An emitter function takes an event
 representing such a fact and applies the rule function associated with the event."
@@ -57,7 +65,7 @@ representing such a fact and applies the rule function associated with the event
 (fact
  (let [em (emitter foo-yx #{})]
    (em (event :fact "test/foo" 2 [3]))
-   => [(event :fact "cloudlog.core_test/foo-yx" 3 [2])]))
+   => [(event :fact "cloudlog-events.core_test/foo-yx" 3 [2])]))
 
 "For a join, the result is an event representing the *rule* produced from the fact.
 
@@ -77,7 +85,7 @@ that contains its underlying data.  But we still treat it as a rule."
 (fact
  (let [em (emitter timeline #{})]
    (em (event :fact "test/follows" "alice" ["bob"]))
-   => [(event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"])]))
+   => [(event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"])]))
 "The `:name` component in the produced events is derived from the name of the rule, a 'bang' (`!`) and
 the index of the link that emitted this event in the overall rule.  An emitter always represents
 the first link in a rule, so this value is always 0."
@@ -98,7 +106,7 @@ Typically, an application's writer is represented by its Internet domain"
 (fact
  (let [em (emitter foo-yx #{"example.com"})]
    (em (event :fact "test/foo" 2 [3] :writers #{:foo :bar}))
-   => [(event :fact "cloudlog.core_test/foo-yx" 3 [2] :writers #{"example.com"})]))
+   => [(event :fact "cloudlog-events.core_test/foo-yx" 3 [2] :writers #{"example.com"})]))
 
 "`:readers` represents a set of users allowed to read an axiom. We will revisit `:readers` when discussing
 [multiplier](#multiplier)."
@@ -125,9 +133,9 @@ that are produced from this combination."
 "The returned function takes two arguments: a *rule event* and a matching *fact event*.
 It returns a sequence of events created by this combination."
 (fact
- (mult1 (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"])
+ (mult1 (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"])
         (event :fact "test/tweeted" "bob" ["something"]))
- => [(event :fact "cloudlog.core_test/timeline" "alice" ["something"])])
+ => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["something"])])
 
 "We call this unit a *multiplier*, because it multiplies the `:change` field of the rule and the fact event.
 Imagine we have `n` facts and `m` rules with a certain key.  In order to have all possible derived events
@@ -139,9 +147,9 @@ Now if we introduce these two events to the multiplier function, we would like t
 that is, applying the rule to the fact `n*m` times.  To achieve this, the multiplier function multiplies the
 `:change` values, so that every event it returns has a `:change` value of `n*m`."
 (fact
- (mult1 (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"] :change 2)
+ (mult1 (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"] :change 2)
         (event :fact "test/tweeted" "bob" ["something"] :change 3))
- => [(event :fact "cloudlog.core_test/timeline" "alice" ["something"] :change 6)])
+ => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["something"] :change 6)])
 
 [[:section {:title "Confidentiality"}]]
 "A multiplier is a meeting place of facts with rules, which in turn are derived from other facts.
@@ -152,15 +160,15 @@ set up a *watch* for tickets that match certain criteria (for simplicity, let's 
 A rule for creating search results can look like this:"
 (declare ticket-by-gender-and-location)
 
-(defrule dating-matches [watch-id ticket-id]
-  [:test/watch watch-id gender loc min-age max-age] (by-anyone)
-  [ticket-by-gender-and-location [gender loc] ticket-id age] (by-anyone)
+(cloudlog/defrule dating-matches [watch-id ticket-id]
+  [:test/watch watch-id gender loc min-age max-age] (cloudlog/by-anyone)
+  [ticket-by-gender-and-location [gender loc] ticket-id age] (cloudlog/by-anyone)
   (when (and (<= age max-age)
              (>= age min-age))))
 
 "`ticket-by-gender-and-location` is an indexing of raw `:test/ticket`, performed by the following rule:"
-(defrule ticket-by-gender-and-location [[gender loc] ticket-id age]
-  [:test/ticket ticket-id gender age loc] (by-anyone))
+(cloudlog/defrule ticket-by-gender-and-location [[gender loc] ticket-id age]
+  [:test/ticket ticket-id gender age loc] (cloudlog/by-anyone))
 
 "People openning tickets on dating services often wish their tickets to be limited to a certain
 set of users.  Similarly, people setting up a watch often wish to keep their preferences secret.
@@ -220,9 +228,9 @@ unable to see the resulting fact (which is what we expect)."
 must come from the rule event:"
 (fact
  (let [mult (multiplier timeline 1)]
-   (mult (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"] :writers #{"example.com"})
+   (mult (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"] :writers #{"example.com"})
          (event :fact ":test/tweeted" "bob" ["hello"] :writers #{[:user= "bob"]}))
-   => [(event :fact "cloudlog.core_test/timeline" "alice" ["hello"] :writers #{"example.com"})]))
+   => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["hello"] :writers #{"example.com"})]))
 
 [[:section {:title "Timestamps"}]]
 "Events are stored with a primary key that combines `:key` and `:ts`.  Out of these, `:key` is used for [sharding](https://en.wikipedia.org/wiki/Shard_%28database_architecture%29), and `:ts` is used for sorting.
@@ -253,7 +261,7 @@ Because we want each timestamp to be a real timestamp (from a raw fact event), w
 exactly one of them.  We take the one from the *fact*."
 (fact
  (let [mult (multiplier timeline 1)
-       ev (first (mult (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"] :ts 2345)
+       ev (first (mult (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"] :ts 2345)
                        (event :fact ":test/tweeted" "bob" ["hello"] :ts 3456)))]
    (:ts ev) => 3456))
 
@@ -299,23 +307,23 @@ of the two.  We don't care as long as we get what we need from the other side of
 "The request consists of a pair `[req chan]`, where `req` is a partial event that matches what we are looking for:"
 (fact
  (-> db-request first first) => {:kind :rule
-                                 :name "cloudlog.core_test/timeline!0"
+                                 :name "cloudlog-events.core_test/timeline!0"
                                  :key "bob"})
 
 "And `chan` is the channel on which the database is expected to provide the reply"
 (def reply-chan (-> db-request first second))
 
 "Next, the database emits matching rules on the reply channel, and closes it."
-(async/>!! reply-chan (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"]))
-(async/>!! reply-chan (event :rule "cloudlog.core_test/timeline!0" "bob" ["eve" "bob"]))
+(async/>!! reply-chan (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"]))
+(async/>!! reply-chan (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["eve" "bob"]))
 (async/close! reply-chan)
 
 "For each such event the matcher will emit the events obtained by multiplying the fact and the rules."
 (fact
  (async/alts!! [res-chan
-                (async/timeout 100)]) => [(event :fact "cloudlog.core_test/timeline" "alice" ["hello"]) res-chan]
+                (async/timeout 100)]) => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["hello"]) res-chan]
  (async/alts!! [res-chan
-                (async/timeout 100)]) => [(event :fact "cloudlog.core_test/timeline" "eve" ["hello"]) res-chan])
+                (async/timeout 100)]) => [(event :fact "cloudlog-events.core_test/timeline" "eve" ["hello"]) res-chan])
 
 "Finally, the channel needs to be closed."
 (fact
@@ -325,7 +333,7 @@ of the two.  We don't care as long as we get what we need from the other side of
 [[:section {:title "Matching Facts for Rules"}]]
 "A matcher function can accept either a fact event or a rule event."
 (def res-chan (async/chan 1000))
-(timeline-matcher (event :rule "cloudlog.core_test/timeline!0" "bob" ["alice" "bob"]) res-chan)
+(timeline-matcher (event :rule "cloudlog-events.core_test/timeline!0" "bob" ["alice" "bob"]) res-chan)
 
 "For a rule, the matcher will query the database for matching facts."
 (def db-request
@@ -347,9 +355,9 @@ of the two.  We don't care as long as we get what we need from the other side of
 "The results are emitted on the `res-chan`:"
 (fact
  (async/alts!! [res-chan
-                (async/timeout 100)]) => [(event :fact "cloudlog.core_test/timeline" "alice" ["hello"]) res-chan]
+                (async/timeout 100)]) => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["hello"]) res-chan]
  (async/alts!! [res-chan
-                (async/timeout 100)]) => [(event :fact "cloudlog.core_test/timeline" "alice" ["world"]) res-chan]
+                (async/timeout 100)]) => [(event :fact "cloudlog-events.core_test/timeline" "alice" ["world"]) res-chan]
  (async/alts!! [res-chan
                 (async/timeout 100)]) => [nil res-chan])
 
