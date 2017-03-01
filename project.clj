@@ -18,6 +18,6 @@
                        :url "https://github.com/brosenan/cloudlog-event"}
             :output "docs"
             :files {"core"
-                    {:input "test/cloudlog-events/core_test.clj"
+                    {:input "test/cloudlog_events/core_test.clj"
                      :title "core"
                      :subtitle "Event Processing"}}})

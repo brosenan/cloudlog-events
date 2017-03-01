@@ -25,6 +25,7 @@ on the internal state of a rule. Each event contains the following fields:
 
 "For the examples of this package we will use the following convenience function:"
 
+
 (defn event [kind name key data & {:keys [ts change writers readers] :or {ts 1000
                                                                           change 1
                                                                           writers #{}
