@@ -1,5 +1,5 @@
 (ns cloudlog-events.core
-  (:require [perm.QmYX8EX8VtsAUhv9j2svB6m6KRTDaYb7NZn4AH73ifkzAA :as cloudlog]
+  (:require [perm.Qmbeprn3Lj4sqvQZpkSmckBtFHTS4QPLAso7KJELcoa2Hj :as cloudlog]
             [perm.QmYWHz6bjnvgiutyjNCRv8CAruCLFnJWuAA44Fos6pPj6z :as interset]
             [clojure.core.async :as async]))
 
